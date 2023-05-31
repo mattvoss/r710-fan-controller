@@ -1,18 +1,19 @@
 general:
   debug: false
-  interval: 60
+  interval: 5
 
 hosts:
   - name: MyLocalHost
-    hysteresis: 3
-    temperatures:
-      - 32
-      - 37
-      - 55
-    speeds:
-      - 9
-      - 10
-      - 15
+    margin: 2
+    curve:
+      - [1, 9]
+      - [32, 9]
+      - [45, 10]
+      - [55, 15]
+      - [65, 35]
+      - [75, 70]
+      - [80, 85]
+      - [85, 100]
 
   #- name: MyRemoteHost
   #  remote_temperature_command: ssh myuser@myhost 'sysctl -a | grep -E "cpu\.[0-9]+\.temp" | grep -E -o "[0-9]+\.[0-9]+"' # must return a newline-delimited list of floats
@@ -20,12 +21,13 @@ hosts:
   #    host: some.idrac.domain
   #    username: idrac-user
   #    password: idrac-password
-  #  hysteresis: 0
-  #  temperatures:
-  #    - 32
-  #    - 37
-  #    - 55
-  #  speeds:
-  #    - 9
-  #    - 10
-  #    - 15
+  #  margin: 2
+  #  curve:
+  #    - [1, 9]
+  #    - [32, 9]
+  #    - [45, 10]
+  #    - [55, 15]
+  #    - [65, 35]
+  #    - [75, 70]
+  #    - [80, 85]
+  #    - [85, 100]

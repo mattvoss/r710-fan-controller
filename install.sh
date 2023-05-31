@@ -42,7 +42,7 @@ deactivate
 
 echo "*** Copying script and configuration in place..."
 if [ -f "$TARGETDIR/fan_control.yaml" ]; then
-    mv "$TARGETDIR/fan_control.yaml"{,.old}
+    echo mv "$TARGETDIR/fan_control.yaml"{,.old}
 fi
 cp fan_control.yaml.example "$TARGETDIR/"
 cp fan_control.py "$TARGETDIR/"

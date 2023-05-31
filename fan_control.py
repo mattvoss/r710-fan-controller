@@ -9,12 +9,14 @@ import subprocess
 import sys
 import time
 import signal
+import numpy as np
 
 config = {
     'config_paths': ['fan_control.yaml', '/opt/fan_control/fan_control.yaml'],
     'general': {
         'debug': False,
-        'interval': 60
+        'interval': 5,
+        'margin': 2
     },
     'hosts': []
 }
@@ -67,14 +69,13 @@ def set_fan_control(wanted_mode, host):
         state[host['name']]['fan_control_mode'] = wanted_mode
 
 
-def set_fan_speed(threshold_n, host):
+def set_fan_speed(wanted_percentage, host):
     global state
 
-    wanted_percentage = host['speeds'][threshold_n]
-    if wanted_percentage == state[host['name']]['fan_speed']:
+    if (wanted_percentage >= state[host['name']]['fan_speed'] - config['general']['margin']) and (wanted_percentage <= state[host['name']]['fan_speed'] + config['general']['margin']):
         return
 
-    if 5 <= wanted_percentage <= 100:
+    if 5 < wanted_percentage <= 100:
         wanted_percentage_hex = "{0:#0{1}x}".format(wanted_percentage, 4)
         if state[host['name']]['fan_control_mode'] != "manual":
             set_fan_control("manual", host)
@@ -89,6 +90,7 @@ def parse_config():
     global config
     _debug = config['general']['debug']
     _interval = config['general']['interval']
+    _margin = config['general']['margin']
 
     config_path = None
     for path in config['config_paths']:
@@ -109,14 +111,14 @@ def parse_config():
             config['general']['debug'] = _debug
         if 'interval' not in list(config['general'].keys()):
             config['general']['interval'] = _interval
+        if 'margin' not in list(config['general'].keys()):
+            config['general']['margin'] = _margin
 
         for host in config['hosts']:
-            if 'hysteresis' not in list(host.keys()):
-                host['hysteresis'] = 0
-            if len(host['temperatures']) != 3:
-                raise ConfigError('Host "{}" has {} temperature thresholds instead of 3.'.format(host['name'], len(host['temperatures'])))
-            if len(host['speeds']) != 3:
-                raise ConfigError('Host "{}" has {} fan speeds instead of 3.'.format(host['name'], len(host['speeds'])))
+            if 'margin' not in list(host.keys()):
+                host['margin'] = 0
+            if 'curve' not in list(host.keys()) or len(host['curve']) == 0:
+                raise ConfigError('Host "{}" has missing fan curve.'.format(host['name']))
             if ('remote_temperature_command' in list(host.keys()) or 'remote_ipmi_credentials' in list(host.keys())) and \
                     ('remote_temperature_command' not in list(host.keys()) or 'remote_ipmi_credentials' not in list(host.keys())):
                 raise ConfigError('Host "{}" must specify either none or both "remote_temperature_command" and "remote_ipmi_credentials" keys.'.format(host['name']))
@@ -158,54 +160,34 @@ def parse_opts():
             config['general']['interval'] = arg
 
 
-def checkHysteresis(temperature, threshold_n, host):
-    global state
-
-    # Skip checks if hysteresis is disabled for this host
-    if not host['hysteresis']:
-        return True
-
-    # Fan speed is higher than it should be or automatic mode is currently enabled
-    if (state[host['name']]['fan_speed'] > host['speeds'][threshold_n] or
-            state[host['name']]['fan_control_mode'] == 'automatic'):
-        # T ≤ (threshold - hysteresis)
-        return temperature <= host['temperatures'][threshold_n] - host['hysteresis']
-
-    # Fan speed is lower than it should be, step up immediately and ignore hysteresis
-    return True
-
-
 def compute_fan_speed(temp_average, host):
     global state
 
     if config['general']['debug']:
         print("[{}] T:{}°C M:{} S:{}%".format(host['name'], temp_average, state[host['name']]['fan_control_mode'], state[host['name']]['fan_speed']))
 
-    # Tavg < Threshold0
-    if (
-        temp_average <= host['temperatures'][0] and
-        checkHysteresis(temp_average, 0, host)
-    ):
-        set_fan_speed(0, host)
+    wanted_percentage = map_fan_curve(temp_average, host)
+    set_fan_speed(wanted_percentage, host)
 
-    # Threshold0 < Tavg ≤ Threshold1
-    elif (
-        host['temperatures'][0] < temp_average <= host['temperatures'][1] and
-        checkHysteresis(temp_average, 1, host)
-    ):
-        set_fan_speed(1, host)
+    # set_fan_control("automatic", host)
 
-    # Threshold1 < Tavg ≤ Threshold2
-    elif (
-        host['temperatures'][1] < temp_average <= host['temperatures'][2] and
-        checkHysteresis(temp_average, 2, host)
-    ):
-        set_fan_speed(2, host)
 
-    # Tavg > Threshold2
-    elif host['temperatures'][2] < temp_average:
-        set_fan_control("automatic", host)
+def map_fan_curve(temp_average, host):
+    global state
 
+    fan_curve_points = np.array(host['curve'])
+    temps = fan_curve_points[:, 0]
+    speeds = fan_curve_points[:, 1]
+    if np.min(speeds) < 5:
+        raise ValueError('Fan curve min speed too low.')
+    if np.min(speeds) > 100:
+        raise ValueError('Fan curve speed contains values > 100.')
+    if np.any(np.diff(temps) < 0):
+        raise ValueError('Fan curve temperatures must be strictly increasing or constant, never decrease.')
+    if np.any(np.diff(speeds) < 0):
+        raise ValueError('Fan curve speeds must be strictly increasing or constant, never decrease.')
+
+    return round(np.interp(x=temp_average, xp=temps, fp=speeds))
 
 def main():
     global config
@@ -213,12 +195,8 @@ def main():
 
     print("Starting fan control script.")
     for host in config['hosts']:
-        print("[{}] Thresholds of {}°C ({}%), {}°C ({}%) and {}°C ({}%)".format(
-                host['name'],
-                host['temperatures'][0], host['speeds'][0],
-                host['temperatures'][1], host['speeds'][1],
-                host['temperatures'][2], host['speeds'][2],
-            ))
+        print(host['name'])
+        print(host['curve'])
 
     while True:
         for host in config['hosts']:
@@ -232,6 +210,7 @@ def main():
                 for core in cores:
                     for feature in core.get_features():
                         for subfeature in core.get_all_subfeatures(feature):
+                            # print(subfeature.name)
                             if subfeature.name.endswith("_input"):
                                 temps.append(core.get_value(subfeature.number))
             else:
@@ -239,6 +218,7 @@ def main():
                 temps = list(map(lambda n: float(n), cmd.read().strip().split('\n')))
                 cmd.close()
 
+            # print(temps)
             temp_average = round(sum(temps)/len(temps))
             compute_fan_speed(temp_average, host)
 
