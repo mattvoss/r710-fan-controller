@@ -1,6 +1,6 @@
-# Dell R710 Fan Control Script
+# Dell R710/R720 Fan Control Script
 
-> A temperature-based fan speed controller for Dell servers (tested on an R710, should work with most PowerEdges). Supports both local and remote hosts.
+> A temperature-based fan speed controller for Dell servers (tested on an R710/R720, should work with most PowerEdges). Supports both local and remote hosts.
 
 
 - [Requisites](#requisites)
@@ -39,13 +39,36 @@
         Core 9:       +33.0°C  (high = +69.0°C, crit = +79.0°C)
         Core 10:      +31.0°C  (high = +69.0°C, crit = +79.0°C)
         ```
-
+4. `nvidia-smi` is installed and configured on the local machine.
+   + Example output of `nvidia-smi`:
+        ```text
+        +---------------------------------------------------------------------------------------+
+        | NVIDIA-SMI 535.129.03             Driver Version: 535.129.03   CUDA Version: N/A      |
+        |-----------------------------------------+----------------------+----------------------+
+        | GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+        | Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+        |                                         |                      |               MIG M. |
+        |=========================================+======================+======================|
+        |   0  Tesla P40                      On  | 00000000:42:00.0 Off |                  Off |
+        | N/A   41C    P8              20W / 250W |  12246MiB / 24576MiB |      0%      Default |
+        |                                         |                      |                  N/A |
+        +-----------------------------------------+----------------------+----------------------+
+                                                                                                 
+        +---------------------------------------------------------------------------------------+
+        | Processes:                                                                            |
+        |  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+        |        ID   ID                                                             Usage      |
+        |=======================================================================================|
+        |    0   N/A  N/A    450829    C+G   vgpu                                      12192MiB |
+        +---------------------------------------------------------------------------------------+
+        ```
+   
 ## Installation / Upgrade
 
 Clone the repo and run the installation script as root to configure the system or upgrade the already installed controller:
 
 ```text
-git clone https://github.com/nmaggioni/r710-fan-controller.git
+git clone https://github.com/mattvoss/r710-fan-controller.git
 cd r710-fan-controller
 sudo ./install.sh [<installation path>]
 ```
