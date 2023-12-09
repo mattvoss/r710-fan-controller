@@ -219,7 +219,19 @@ def main():
                 cmd.close()
 
             # print(temps)
-            temp_average = round(sum(temps)/len(temps))
+            #temp_average = round(sum(temps)/len(temps))
+            cpu_average = round(sum(temps)/len(temps))
+
+            # code added by eddie
+            gpu_temps =  [int(t) for t in str(subprocess.getoutput("nvidia-smi -q | grep 'GPU Current Temp' | cut -d ' ' -f 30")).split('\n')]
+            #print("gpu_temps" + str(gpu_temps))
+            max_gpu_temp = max(gpu_temps)
+            print("max gpu temp " + str(max_gpu_temp))
+            temp_average = max(cpu_average, max_gpu_temp)
+            print("temp average " + str(temp_average))
+            print("cpu average " + str(cpu_average))
+            # end code added by eddie
+
             compute_fan_speed(temp_average, host)
 
         time.sleep(config['general']['interval'])
