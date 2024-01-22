@@ -98,9 +98,8 @@ Remote hosts must also contain both the `remote_temperature_command` string and 
 | --- | --- |
 | `general`.`debug` | Toggle debug mode _(print ipmitools commands instead of executing them, enable additional logging)_. |
 | `general`.`interval` | How often (in seconds) to read the CPUs' temperatures and adjust the fans' speeds. |
-| `hosts`_[n]_.`hysteresis` | How many degrees (in °C) the CPUs' temperature must go below the threshold to trigger slowing the fans down. _Prevents rapid speed changes, a good starting value can be `3`._ |
-| `hosts`_[n]_.`temperatures` | A list of three upper bounds (in °C) of temperature thresholds. _See [below](#how-it-works) for details._ |
-| `hosts`_[n]_.`speeds` | A list of three speeds (in %) at which fans will run for the correspondent threshold. _See [below](#how-it-works) for details._ |
+| `hosts`_[n]_.`margin` | How many degrees (in °C) the CPUs' temperature must go below the threshold to trigger slowing the fans down. _Prevents rapid speed changes, a good starting value can be `2`._ |
+| `hosts`_[n]_.`curve` | A YAML array of temperature, fan speed percentage values. Each array element should be temperature in celsius and the fan speed desired. e.g. [30, 40] which means at 30&deg; celsius the fan speed will be set to 40%. _See [below](#how-it-works) for details._ An unlimited number of elements can be specified. |
 | `hosts`_[n]_.`remote_temperature_command` | **For remote hosts only.** A command that will be executed to obtain the temperatures of this remote system. _See [notes](#notes-on-remote-hosts) for details._ |
 | `hosts`_[n]_.`remote_ipmi_credentials`.`host` | **For remote hosts only.** The iDRAC hostname/IP of this remote system. _See [notes](#notes-on-remote-hosts) for details._ |
 | `hosts`_[n]_.`remote_ipmi_credentials`.`username` | **For remote hosts only.** The username used to login to this remote system's iDRAC. _See [notes](#notes-on-remote-hosts) for details._ |
@@ -108,16 +107,7 @@ Remote hosts must also contain both the `remote_temperature_command` string and 
 
 ## How it works
 
-Every `general`.`interval` seconds the controller will fetch the temperatures of all the available CPU cores, average them and round the result (referred to as _Tavg_ below). It will then follow this logic to set the fans' speed percentage or engage automatic (hardware managed) control.
-
-| Condition | Fan speed |
-| --- | --- |
-| _Tavg_ ≤ Threshold1 | Threshold1 |
-| Threshold1 < _Tavg_ ≤ Threshold2 | Threshold2 |
-| Threshold2 < _Tavg_ ≤ Threshold3 | Threshold3 |
-| _Tavg_ > Threshold3 | Automatic |
-
-If `hysteresis` is set for a given host, the controller will wait for the temperature to go below _ThresholdN - hysteresis_ temperature. For example: with a Threshold2 of 37°C and an hysteresis of 3°C, the fans won't slow down from Threshold3 to Threshold2 speed until the temperature reaches 34°C.
+Every `general`.`interval` seconds the controller will fetch the temperatures of all the available CPU cores, average them and round the result  and fetch all GPU temperatures, average them and round the result. It will then take the max temperature between CPU and GPU averages to set the fans' speed percentage. A temperature curve can be created to ramp the fans' speed up or down smoothly based upon the temperature observed.
 
 ## Notes on remote hosts
 
