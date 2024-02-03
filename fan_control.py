@@ -223,7 +223,10 @@ def main():
             cpu_average = round(sum(temps)/len(temps))
 
             # code added by eddie
-            gpu_temps =  [int(t) for t in str(subprocess.getoutput("nvidia-smi -q | grep 'GPU Current Temp' | cut -d ' ' -f 30")).split('\n')]
+            cmd = "nvidia-smi -q | grep 'GPU Current Temp' | cut -d ' ' -f 30"
+            if host['ssh']:
+                cmd = "ssh " + host['ssh'] + " " + cmd
+            gpu_temps =  [int(t) for t in str(subprocess.getoutput(cmd)).split('\n')]
             #print("gpu_temps" + str(gpu_temps))
             max_gpu_temp = max(gpu_temps)
             print("max gpu temp " + str(max_gpu_temp))
